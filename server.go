@@ -53,13 +53,8 @@ func (this *Server) Handler(conn net.Conn) {
 	//...当前连接的业务
 	//fmt.Println("连接建立成功")
 	//用户上线，将用户加入到onlinemap中
-	user := NewUser(conn)
-	this.mapLock.Lock()
-	this.OnlineMap[user.Name] = user
-	this.mapLock.Unlock()
-
-	//广播当前用户上线消息
-	this.BoardCast(user, "已上线")
+	user := NewUser(conn, this)
+	user.Online()
 
 	//接收客户端发送的消息
 	go func() {
@@ -67,17 +62,18 @@ func (this *Server) Handler(conn net.Conn) {
 		for {
 			n, err := conn.Read(buf)
 			if n == 0 {
-				this.BoardCast(user, "已下线")
+				user.Offline()
 				return
 			}
 			if err != nil && err != io.EOF {
+				fmt.Println("Conn Read err:", err)
 				return
 			}
 			//提取用户消息（取出结尾\n）
-			msg:=string(buf[:n-1])
+			msg := string(buf[:n-1])
 
-			//将得到消息进行广播
-			this.BoardCast(user,msg)
+			//用户针对msg消息进行处理
+			user.DoMessage(msg)
 		}
 	}()
 
