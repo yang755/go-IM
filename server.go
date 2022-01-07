@@ -74,7 +74,7 @@ func (this *Server) Handler(conn net.Conn) {
 				return
 			}
 			//提取用户消息（取出结尾\n）
-			msg:=string(buf[n-1])
+			msg:=string(buf[:n-1])
 
 			//将得到消息进行广播
 			this.BoardCast(user,msg)
