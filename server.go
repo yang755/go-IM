@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
@@ -36,8 +37,8 @@ func (this *Server) ListenMessager() {
 		msg := <-this.Message
 		//将message发送给全部用户
 		this.mapLock.Lock()
-		for _,cli:=range this.OnlineMap{
-			cli.C<-msg
+		for _, cli := range this.OnlineMap {
+			cli.C <- msg
 		}
 		this.mapLock.Unlock()
 	}
@@ -59,6 +60,26 @@ func (this *Server) Handler(conn net.Conn) {
 
 	//广播当前用户上线消息
 	this.BoardCast(user, "已上线")
+
+	//接收客户端发送的消息
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := conn.Read(buf)
+			if n == 0 {
+				this.BoardCast(user, "已下线")
+				return
+			}
+			if err != nil && err != io.EOF {
+				return
+			}
+			//提取用户消息（取出结尾\n）
+			msg:=string(buf[n-1])
+
+			//将得到消息进行广播
+			this.BoardCast(user,msg)
+		}
+	}()
 
 	//当前handle阻塞
 	select {}
