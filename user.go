@@ -1,6 +1,9 @@
 package main
 
-import "net"
+import (
+	"net"
+	"strings"
+)
 
 type User struct {
 	Name   string
@@ -35,7 +38,7 @@ func (this *User) Online() {
 	this.server.mapLock.Unlock()
 
 	//广播当前用户上线消息
-	this.server.BoardCast(this, "已上线")
+	this.server.BoardCast(this, "已上线\r\n使用【rename|名称】可以修改名字\r\n使用【who】可以查看在线用户\r\n")
 }
 
 //用户下线业务
@@ -65,6 +68,25 @@ func (this *User) DoMessage(msg string) {
 			this.SendMsg(OnlineMsg)
 		}
 		this.server.mapLock.Unlock()
+	} else if len(msg) > 7 && msg[:7] == "rename|" {
+		//消息格式：rename|张三
+		newName := strings.Split(msg, "|")[1]
+		//this.server.OnlineMap[this.Name]=newName
+		//判断当前用户是否已存在
+		if _, ok := this.server.OnlineMap[newName]; ok {
+			//fmt.Printf("当前用户%s已存在",newName)
+			this.SendMsg("当前用户" + newName + "已存在")
+			return
+		} else {
+			this.server.mapLock.Lock()
+			delete(this.server.OnlineMap, this.Name)
+			this.server.OnlineMap[newName] = this
+			this.server.mapLock.Unlock()
+			this.Name = newName
+
+			this.SendMsg("您已修改当前用户名：" + newName + "\r\n")
+		}
+
 	} else {
 		this.server.BoardCast(this, msg)
 
@@ -75,6 +97,6 @@ func (this *User) DoMessage(msg string) {
 func (this *User) ListenMessage() {
 	for {
 		msg := <-this.C
-		this.conn.Write([]byte(msg + "\n"))
+		this.conn.Write([]byte(msg + "\r\n"))
 	}
 }
